@@ -28,10 +28,8 @@ const CONFIG = {
     dev_apply: { role: '1477660043842158674', category: '1477925319762772069', label: 'تقديم على فريق التطوير' }
 };
 
-const ticketTimers = new Map();
 const ticketData = new Map();
 
-// --- ✅ تعديل السطر 36 هنا ---
 client.once('ready', () => {
     console.log(`✅ بوت sp8 جاهز | تم تسجيل الدخول كـ ${client.user.tag}`);
 });
@@ -54,8 +52,9 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 📩 التعامل مع التفاعلات ---
+// --- 📩 التعامل مع التفاعلات (القائمة والأزرار) ---
 client.on('interactionCreate', async (interaction) => {
+    // 1. فتح التكت عبر القائمة
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_ticket') {
         await interaction.deferReply({ ephemeral: true });
         const selected = CONFIG[interaction.values[0]];
@@ -72,28 +71,54 @@ client.on('interactionCreate', async (interaction) => {
             });
             ticketData.set(ticketChannel.id, { userId: interaction.user.id, claimer: 'لم يتم الاستلام' });
             await interaction.editReply({ content: `تم فتح تذكرتك: ${ticketChannel}` });
+            
             const buttons = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`claim_${selected.role}`).setLabel('استلام').setStyle(ButtonStyle.Success).setEmoji('✅'),
                 new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق').setStyle(ButtonStyle.Danger).setEmoji('🔒')
             );
-            await ticketChannel.send({ content: `🔔 <@&${selected.role}>`, components: [buttons] });
+            await ticketChannel.send({ 
+                content: `🔔 <@&${selected.role}> محادثة جديدة!`, 
+                embeds: [new EmbedBuilder().setTitle(`قسم ${selected.label}`).setDescription(`حياك الله <@${interaction.user.id}>، انتظر رد المسؤول.`).setColor('#D4AF37')],
+                components: [buttons] 
+            });
         } catch (e) { console.error(e); }
     }
-    // (بقية كود الأزرار والإغلاق تظل كما هي في ملفك الأصلي)
+
+    // 2. معالجة ضغطات الأزرار
     if (interaction.isButton()) {
+        const data = ticketData.get(interaction.channel.id) || { userId: interaction.user.id };
+
+        // زر الاستلام
+        if (interaction.customId.startsWith('claim_')) {
+            const roleId = interaction.customId.split('_')[1];
+            if (!interaction.member.roles.cache.has(roleId)) {
+                return interaction.reply({ content: "❌ هذا الزر للمسؤولين فقط.", ephemeral: true });
+            }
+            ticketData.set(interaction.channel.id, { ...data, claimer: interaction.user.id });
+            await interaction.reply({ content: `✅ التذكرة الآن تحت إشراف: <@${interaction.user.id}>` });
+            
+            const disabledRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('claimed').setLabel(`مستلمة من: ${interaction.user.username}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
+                new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+            );
+            await interaction.message.edit({ components: [disabledRow] });
+        }
+
+        // زر الإغلاق
         if (interaction.customId === 'close_ticket') {
-            await interaction.reply("جاري الإغلاق...");
-            const data = ticketData.get(interaction.channel.id) || { userId: interaction.user.id };
-            await closeTicket(interaction.channel, data.userId, `<@${interaction.user.id}>`, "إغلاق يدوي");
+            await interaction.reply("🔒 جاري أرشفة التذكرة وإغلاقها...");
+            await closeTicket(interaction.channel, data.userId);
         }
     }
 });
 
-async function closeTicket(channel, userId, closer, reason) {
+async function closeTicket(channel, userId) {
     try {
         await channel.setParent(CLOSED_CATEGORY_ID);
+        await channel.lockPermissions();
         await channel.setName(`closed-${channel.name}`);
-        // إضافة سجلات أو حذف القناة حسب رغبتك هنا
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (user) await user.send(`📂 تم إغلاق تذكرتك في سيرفر **sp8**.`).catch(() => {});
     } catch (e) { console.error(e); }
 }
 
