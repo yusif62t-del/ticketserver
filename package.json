@@ -1,17 +1,13 @@
 {
-  "name": "my-bot",
+  "name": "ticket-bot",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "",
+  "main": "ticket.js",
   "scripts": {
     "start": "node ticket.js"
   },
   "dependencies": {
-    "discord.js": "^14.0.0",
-    "express": "^5.2.1"
-  },
-  "description": "",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+    "discord.js": "^14.14.1",
+    "express": "^4.18.2"
+  }
 }
