@@ -122,4 +122,5 @@ async function closeTicket(channel, userId) {
     } catch (e) { console.error(e); }
 }
 
-client.login(process.env.TOKEN);
+if (!process.env.TOKEN) console.error("⚠️ خطأ: لم يتم العثور على التوكن في إعدادات البيئة!");
+
